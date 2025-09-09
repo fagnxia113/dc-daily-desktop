@@ -1,0 +1,78 @@
+  - name: Setup Node
+    uses: actions/setup-node@v4
+    with:
+      node-version: "20"
+
+  - name: Install deps
+    shell: bash
+    run: |
+      npm config set registry https://registry.npmmirror.com
+      export ELECTRON_MIRROR=https://npmmirror.com/mirrors/electron/
+      export ELECTRON_BUILDER_BINARIES_MIRROR=https://npmmirror.com/mirrors/electron-builder-binaries/
+      npm install --no-audit --no-fund
+
+  - name: Setup Rust
+    uses: dtolnay/rust-toolchain@stable
+    with:
+      target: x86_64-pc-windows-msvc
+
+  - name: Setup Go
+    uses: actions/setup-go@v5
+    with:
+      go-version: "1.21.x"
+
+  - name: Build wewe-rss from source (auto-detect Rust/Go)
+    shell: pwsh
+    run: |
+      New-Item -ItemType Directory -Force -Path resources\wewe-rss | Out-Null
+      $tmp = Join-Path $env:RUNNER_TEMP "wewe-rss-src"
+      git clone --depth 1 https://github.com/cooderl/wewe-rss $tmp
+      if (-not (Test-Path "$tmp")) { throw "Clone wewe-rss failed." }
+
+      if (Test-Path "$tmp\Cargo.toml") {
+        Write-Host "Detected Rust project. Building with cargo..."
+        Push-Location $tmp
+        cargo build --release
+        Pop-Location
+        $built = Get-ChildItem "$tmp\target\release" -Filter "wewe-rss*.exe" -Recurse | Select-Object -First 1
+        if (-not $built) { throw "Cargo build finished but wewe-rss.exe not found." }
+        Copy-Item $built.FullName resources\wewe-rss\wewe-rss.exe -Force
+      }
+      elseif (Test-Path "$tmp\go.mod") {
+        Write-Host "Detected Go project. Building with go build..."
+        Push-Location $tmp
+        go env -w GOPROXY=https://goproxy.cn,direct
+        if (Test-Path "$tmp\cmd\wewe-rss\main.go") {
+          go build -o "$env:GITHUB_WORKSPACE\resources\wewe-rss\wewe-rss.exe" ./cmd/wewe-rss
+        } else {
+          go build -o "$env:GITHUB_WORKSPACE\resources\wewe-rss\wewe-rss.exe" .
+        }
+        Pop-Location
+      }
+      else {
+        throw "Unknown project layout for wewe-rss (no Cargo.toml or go.mod)."
+      }
+
+      if (-not (Test-Path resources\wewe-rss\wewe-rss.exe)) {
+        throw "wewe-rss.exe not built!"
+      }
+
+  - name: Build (electron-builder)
+    run: npm run dist
+
+  - name: Upload artifact
+    uses: actions/upload-artifact@v4
+    with:
+      name: dc-daily-desktop_win64_portable
+      path: dist/dc-daily-desktop_*_win64_portable.zip
+
+  - name: Create GitHub Release
+    uses: softprops/action-gh-release@v2
+    with:
+      tag_name: v0.1.0-alpha.${{ github.run_number }}
+      name: "v0.1.0-alpha.${{ github.run_number }}"
+      make_latest: false
+      draft: false
+      prerelease: true
+      files: |
+        dist/dc-daily-desktop_*_win64_portable.zip
