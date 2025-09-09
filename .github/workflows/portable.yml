@@ -1,3 +1,20 @@
+name: build-windows-portable
+
+on:
+push:
+branches: [ "main" ]
+workflow_dispatch: {}
+
+permissions:
+contents: write
+
+jobs:
+build:
+runs-on: windows-latest
+steps:
+- name: Checkout
+uses: actions/checkout@v4
+
   - name: Setup Node
     uses: actions/setup-node@v4
     with:
@@ -34,8 +51,8 @@
         Push-Location $tmp
         cargo build --release
         Pop-Location
-        $built = Get-ChildItem "$tmp\target\release" -Filter "wewe-rss*.exe" -Recurse | Select-Object -First 1
-        if (-not $built) { throw "Cargo build finished but wewe-rss.exe not found." }
+        $built = Get-ChildItem "$tmp\target\release" -Filter "*.exe" -Recurse | Select-Object -First 1
+        if (-not $built) { throw "Cargo build finished but exe not found." }
         Copy-Item $built.FullName resources\wewe-rss\wewe-rss.exe -Force
       }
       elseif (Test-Path "$tmp\go.mod") {
