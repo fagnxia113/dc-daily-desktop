@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <title>DC Daily Desktop (Alpha)</title>
+  <style>
+    body { font-family: system-ui, Arial; margin: 16px; }
+    .row { margin-bottom: 12px; }
+    input[type=text] { width: 520px; padding: 6px; }
+    button { padding: 6px 12px; }
+    ul { padding-left: 18px; }
+    .log { background:#111; color:#0f0; padding:10px; height:180px; overflow:auto; white-space:pre-wrap; }
+  </style>
+</head>
+<body>
+  <h2>DC Daily Desktop v0.1.0-alpha</h2>
+  <div class="row">
+    <b>添加公众号：</b>
+    <input id="mpUrl" type="text" placeholder="粘贴一条该公众号文章链接，例如 https://mp.weixin.qq.com/s/..." />
+    <button id="btnAdd">解析并添加</button>
+  </div>
+  <div class="row">
+    <b>已添加公众号（__biz）：</b>
+    <ul id="bizList"></ul>
+  </div>
+  <div class="row">
+    <b>日期范围：</b>
+    <input id="fromDate" type="date" /> ~ <input id="toDate" type="date" />
+    <button id="btnRun">开始运行并导出 Excel</button>
+  </div>
+  <div class="row">
+    <b>运行日志（只在本次会话显示）：</b>
+    <div class="log" id="log"></div>
+  </div>
+  <script src="./renderer.js"></script>
+</body>
+</html>
