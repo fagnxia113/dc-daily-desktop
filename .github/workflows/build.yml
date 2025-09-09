@@ -11,32 +11,52 @@
       export ELECTRON_BUILDER_BINARIES_MIRROR=https://npmmirror.com/mirrors/electron-builder-binaries/
       npm install --no-audit --no-fund
 
-  - name: Setup Go (for building wewe-rss)
+  # 预装 Rust（如 wewe-rss 是 Rust 项目则直接可用）
+  - name: Setup Rust
+    uses: dtolnay/rust-toolchain@stable
+    with:
+      target: x86_64-pc-windows-msvc
+
+  # 预装 Go（如 wewe-rss 是 Go 项目则作为后备）
+  - name: Setup Go
     uses: actions/setup-go@v5
     with:
       go-version: "1.21.x"
 
-  - name: Build wewe-rss from source
+  - name: Build wewe-rss from source (auto-detect Rust/Go)
     shell: pwsh
     run: |
       New-Item -ItemType Directory -Force -Path resources\wewe-rss | Out-Null
       $tmp = Join-Path $env:RUNNER_TEMP "wewe-rss-src"
       git clone --depth 1 https://github.com/cooderl/wewe-rss $tmp
       if (-not (Test-Path "$tmp")) { throw "Clone wewe-rss failed." }
-      if (Test-Path "$tmp\go.mod") {
-        go env -w GOPROXY=https://goproxy.cn,direct
+
+      if (Test-Path "$tmp\Cargo.toml") {
+        Write-Host "Detected Rust project. Building with cargo..."
         Push-Location $tmp
+        cargo build --release
+        Pop-Location
+        $built = Get-ChildItem "$tmp\target\release" -Filter "wewe-rss*.exe" -Recurse | Select-Object -First 1
+        if (-not $built) { throw "Cargo build finished but wewe-rss.exe not found." }
+        Copy-Item $built.FullName resources\wewe-rss\wewe-rss.exe -Force
+      }
+      elseif (Test-Path "$tmp\go.mod") {
+        Write-Host "Detected Go project. Building with go build..."
+        Push-Location $tmp
+        go env -w GOPROXY=https://goproxy.cn,direct
         if (Test-Path "$tmp\cmd\wewe-rss\main.go") {
           go build -o "$env:GITHUB_WORKSPACE\resources\wewe-rss\wewe-rss.exe" ./cmd/wewe-rss
         } else {
           go build -o "$env:GITHUB_WORKSPACE\resources\wewe-rss\wewe-rss.exe" .
         }
         Pop-Location
-      } else {
-        throw "wewe-rss repo does not contain go.mod. Please tell me and I will switch to an alternative build path."
       }
-      if (-not (Test-Path "$env:GITHUB_WORKSPACE\resources\wewe-rss\wewe-rss.exe")) {
-        throw "wewe-rss.exe not built."
+      else {
+        throw "Unknown project layout for wewe-rss (no Cargo.toml or go.mod). Please tell me its build method."
+      }
+
+      if (-not (Test-Path resources\wewe-rss\wewe-rss.exe)) {
+        throw "wewe-rss.exe not built!"
       }
 
   - name: Build (electron-builder)
