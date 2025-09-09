@@ -1,7 +1,8 @@
 name: sanity
-on: [workflow_dispatch]
+on:
+  workflow_dispatch:
 jobs:
-hello:
-runs-on: ubuntu-latest
-steps:
-- run: echo OK
+  hello:
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo "YAML OK"
