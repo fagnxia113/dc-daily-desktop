@@ -1,0 +1,50 @@
+{
+  "name": "dc-daily-desktop",
+  "version": "0.1.0-alpha",
+  "description": "Daily aggregator for WeChat MPs in DC/Compute/Cloud industries",
+  "private": true,
+  "main": "src/main.js",
+  "author": "fagnxia113",
+  "scripts": {
+    "start": "electron .",
+    "pack": "electron-builder --dir",
+    "dist": "electron-builder --win zip -p never"
+  },
+  "build": {
+    "appId": "com.fagnxia113.dcdaily",
+    "productName": "DC Daily Desktop",
+    "directories": {
+      "output": "dist"
+    },
+    "files": [
+      "src/**/*",
+      "package.json"
+    ],
+    "extraResources": [
+      {
+        "from": "resources/wewe-rss",
+        "to": "wewe-rss"
+      }
+    ],
+    "win": {
+      "target": [
+        {
+          "target": "zip",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "artifactName": "dc-daily-desktop_${version}_win64_portable.zip"
+    }
+  },
+  "dependencies": {
+    "exceljs": "^4.4.0",
+    "fs-extra": "^11.2.0",
+    "node-fetch": "^3.3.2"
+  },
+  "devDependencies": {
+    "electron": "^28.2.0",
+    "electron-builder": "^24.6.0"
+  }
+}
