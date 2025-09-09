@@ -1,0 +1,70 @@
+name: build-windows-portable
+
+on:
+  push:
+    branches: [ "main" ]
+  workflow_dispatch: {}
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Install deps
+        run: npm ci
+
+      - name: Prepare wewe-rss binary (download latest release)
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path resources\wewe-rss | Out-Null
+          $release = Invoke-RestMethod -Uri "https://api.github.com/repos/cooderl/wewe-rss/releases/latest"
+          $assets = $release.assets
+          # 优先匹配 windows/x64 的二进制或压缩包
+          $asset = $assets | Where-Object { $_.name -match 'win|windows' -and $_.name -match '64|x64|amd64' } | Select-Object -First 1
+          if (-not $asset) { $asset = $assets | Where-Object { $_.name -match 'win|windows' } | Select-Object -First 1 }
+          if (-not $asset) { throw "No suitable wewe-rss asset found in latest release." }
+          $out = Join-Path $env:RUNNER_TEMP $asset.name
+          Invoke-WebRequest -Uri $asset.browser_download_url -OutFile $out
+          if ($out.ToLower().EndsWith(".zip")) {
+            Expand-Archive -Path $out -DestinationPath resources\wewe-rss -Force
+          } else {
+            Copy-Item $out resources\wewe-rss\wewe-rss.exe -Force
+          }
+          # 若解压得到的文件名不同，尝试重命名为 wewe-rss.exe
+          $exe = Get-ChildItem resources\wewe-rss -Filter *.exe -Recurse | Select-Object -First 1
+          if ($exe -and ($exe.Name -ne "wewe-rss.exe")) {
+            Copy-Item $exe.FullName resources\wewe-rss\wewe-rss.exe -Force
+          }
+          if (-not (Test-Path resources\wewe-rss\wewe-rss.exe)) {
+            throw "wewe-rss.exe not found after download/extract."
+          }
+
+      - name: Build (electron-builder)
+        run: npm run dist
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: dc-daily-desktop_win64_portable
+          path: dist/dc-daily-desktop_*_win64_portable.zip
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v0.1.0-alpha.${{ github.run_number }}
+          name: "v0.1.0-alpha.${{ github.run_number }}"
+          make_latest: false
+          draft: false
+          prerelease: true
+          files: |
+            dist/dc-daily-desktop_*_win64_portable.zip
